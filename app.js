@@ -22,15 +22,25 @@ let silentFrameCount = 0;
 const SILENCE_FRAMES_REQUIRED = 8;
 const MIN_VALID_FREQUENCY = 40;
 const MAX_VALID_FREQUENCY = 2000;
+let noteQueue = [];
 
 function updateStreakDisplay() {
   streakCountEl.textContent = String(streakCount);
 }
 
 function pickNextTargetNote() {
-  const next = NOTE_NAMES[Math.floor(Math.random() * NOTE_NAMES.length)];
+  if (noteQueue.length === 0) {
+    noteQueue = [...NOTE_NAMES];
+  }
+  const randomIndex = Math.floor(Math.random() * noteQueue.length);
+  const [next] = noteQueue.splice(randomIndex, 1);
   targetNote = next;
   targetNoteEl.textContent = next;
+}
+
+function clearTargetNote() {
+  targetNote = null;
+  targetNoteEl.textContent = "--";
 }
 
 function frequencyToMidi(frequency) {
@@ -139,6 +149,7 @@ function evaluateDetectedNote(detectedName) {
     updateStreakDisplay();
     hintEl.textContent = "Correct! Release the key; next note appears after silence.";
     setTimeout(() => {
+      clearTargetNote();
       waitingForSilenceAfterCorrect = true;
       silentFrameCount = 0;
     }, 1000);
