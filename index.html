@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Piano Note Trainer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app" id="app">
+      <header class="header">
+        <h1>Piano Note Trainer</h1>
+        <p>Play the shown note on a piano. Any octave counts.</p>
+      </header>
+
+      <section class="target-card">
+        <p class="label">Target Note</p>
+        <p id="targetNote" class="target-note">--</p>
+      </section>
+
+      <section class="status-card">
+        <p class="label">Detected</p>
+        <p id="detectedNote" class="detected-note">Listening inactive</p>
+        <p id="detectedFrequency" class="frequency">-- Hz</p>
+        <p class="label streak-label">Streak</p>
+        <p id="streakCount" class="streak-count">0</p>
+      </section>
+
+      <section class="controls">
+        <button id="startButton" class="btn">Start Microphone</button>
+        <p id="hint" class="hint">
+          Tap to allow microphone access, then play notes one at a time.
+        </p>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
