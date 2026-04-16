@@ -43,3 +43,9 @@ Live app: [https://lukasolson.github.io/piano-notes/](https://lukasolson.github.
 ### Incorrect answer (red flash)
 
 ![Incorrect note feedback](./screenshots/incorrect.png)
+
+## Cursor build transcript
+
+Built as a live example of what Cursor can generate iteratively through prompts and refinements.
+
+The exported chat used to build and refine this app is available in `cursor.md`.
