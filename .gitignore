@@ -1,0 +1,6 @@
+.DS_Store
+.idea/
+
+# Optional local artifacts
+*.log
+*.tmp

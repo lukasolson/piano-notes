@@ -1,17 +1,4 @@
-const NOTE_NAMES = [
-  "C",
-  "C#",
-  "D",
-  "D#",
-  "E",
-  "F",
-  "F#",
-  "G",
-  "G#",
-  "A",
-  "A#",
-  "B",
-];
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 const appEl = document.getElementById("app");
 const targetNoteEl = document.getElementById("targetNote");
@@ -30,17 +17,11 @@ let isListening = false;
 let isLocked = false;
 let streakCount = 0;
 let animationFrameId = null;
-let stableDetectedName = null;
-let stableCount = 0;
 let waitingForSilenceAfterCorrect = false;
 let silentFrameCount = 0;
 const SILENCE_FRAMES_REQUIRED = 8;
-const SMOOTHING_WINDOW_SIZE = 6;
 const MIN_VALID_FREQUENCY = 40;
 const MAX_VALID_FREQUENCY = 2000;
-const PROCESS_EVERY_N_FRAMES = 2;
-let processingFrameCounter = 0;
-const recentFrequencies = [];
 
 function updateStreakDisplay() {
   streakCountEl.textContent = String(streakCount);
@@ -58,25 +39,6 @@ function frequencyToMidi(frequency) {
 
 function midiToNoteName(midi) {
   return NOTE_NAMES[((midi % 12) + 12) % 12];
-}
-
-function getAverageFrequency(frequencies) {
-  if (frequencies.length === 0) {
-    return -1;
-  }
-  const total = frequencies.reduce((sum, value) => sum + value, 0);
-  return total / frequencies.length;
-}
-
-function pushFrequencySample(frequency) {
-  recentFrequencies.push(frequency);
-  if (recentFrequencies.length > SMOOTHING_WINDOW_SIZE) {
-    recentFrequencies.shift();
-  }
-}
-
-function clearFrequencySamples() {
-  recentFrequencies.length = 0;
 }
 
 function getPitchByAutocorrelation(buffer, sampleRate) {
@@ -168,19 +130,6 @@ function evaluateDetectedNote(detectedName) {
     return;
   }
 
-  if (detectedName === stableDetectedName) {
-    stableCount += 1;
-  } else {
-    stableDetectedName = detectedName;
-    stableCount = 1;
-  }
-
-  // Require the same detected note in a few frames
-  // so quick noise spikes do not trigger a result.
-  if (stableCount < 3) {
-    return;
-  }
-
   isLocked = true;
   const isCorrect = detectedName === targetNote;
   setResultFlash(isCorrect);
@@ -190,9 +139,6 @@ function evaluateDetectedNote(detectedName) {
     updateStreakDisplay();
     hintEl.textContent = "Correct! Release the key; next note appears after silence.";
     setTimeout(() => {
-      stableDetectedName = null;
-      stableCount = 0;
-      clearFrequencySamples();
       waitingForSilenceAfterCorrect = true;
       silentFrameCount = 0;
     }, 1000);
@@ -201,9 +147,6 @@ function evaluateDetectedNote(detectedName) {
     updateStreakDisplay();
     hintEl.textContent = `Not quite. You played ${detectedName}. Try again.`;
     setTimeout(() => {
-      stableDetectedName = null;
-      stableCount = 0;
-      clearFrequencySamples();
       isLocked = false;
     }, 1000);
   }
@@ -216,27 +159,19 @@ function listenFrame() {
 
   const buffer = new Float32Array(analyser.fftSize);
   analyser.getFloatTimeDomainData(buffer);
-  processingFrameCounter += 1;
-  if (processingFrameCounter % PROCESS_EVERY_N_FRAMES !== 0) {
-    animationFrameId = requestAnimationFrame(listenFrame);
-    return;
-  }
   const rawFrequency = getPitchByAutocorrelation(buffer, audioContext.sampleRate);
   const isValidFrequency =
     rawFrequency >= MIN_VALID_FREQUENCY && rawFrequency <= MAX_VALID_FREQUENCY;
 
   if (isValidFrequency) {
     silentFrameCount = 0;
-    pushFrequencySample(rawFrequency);
-    const smoothedFrequency = getAverageFrequency(recentFrequencies);
-    const midi = frequencyToMidi(smoothedFrequency);
+    const midi = frequencyToMidi(rawFrequency);
     const noteName = midiToNoteName(midi);
 
     detectedNoteEl.textContent = noteName;
-    detectedFrequencyEl.textContent = `${smoothedFrequency.toFixed(1)} Hz`;
+    detectedFrequencyEl.textContent = `${rawFrequency.toFixed(1)} Hz`;
     evaluateDetectedNote(noteName);
   } else {
-    clearFrequencySamples();
     if (waitingForSilenceAfterCorrect) {
       silentFrameCount += 1;
       if (silentFrameCount >= SILENCE_FRAMES_REQUIRED) {
@@ -244,9 +179,6 @@ function listenFrame() {
         pickNextTargetNote();
         hintEl.textContent = "Play the shown note on your instrument.";
         isLocked = false;
-        stableDetectedName = null;
-        stableCount = 0;
-        clearFrequencySamples();
       }
     }
 
