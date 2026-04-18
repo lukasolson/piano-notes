@@ -1,7 +1,46 @@
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const DETECTED_NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const TARGET_NOTE_NAMES = [
+  "C",
+  "C#",
+  "Db",
+  "D",
+  "D#",
+  "Eb",
+  "E",
+  "F",
+  "F#",
+  "Gb",
+  "G",
+  "G#",
+  "Ab",
+  "A",
+  "A#",
+  "Bb",
+  "B",
+];
+const NOTE_TO_PITCH_CLASS = {
+  C: 0,
+  "C#": 1,
+  Db: 1,
+  D: 2,
+  "D#": 3,
+  Eb: 3,
+  E: 4,
+  F: 5,
+  "F#": 6,
+  Gb: 6,
+  G: 7,
+  "G#": 8,
+  Ab: 8,
+  A: 9,
+  "A#": 10,
+  Bb: 10,
+  B: 11,
+};
 
 const appEl = document.getElementById("app");
 const targetNoteEl = document.getElementById("targetNote");
+const targetStaffEl = document.getElementById("targetStaff");
 const detectedNoteEl = document.getElementById("detectedNote");
 const detectedFrequencyEl = document.getElementById("detectedFrequency");
 const streakCountEl = document.getElementById("streakCount");
@@ -22,25 +61,132 @@ let silentFrameCount = 0;
 const SILENCE_FRAMES_REQUIRED = 8;
 const MIN_VALID_FREQUENCY = 40;
 const MAX_VALID_FREQUENCY = 2000;
+const CONSISTENCY_HZ_TOLERANCE = 4;
+const CONSISTENCY_MIN_DURATION_MS = 200;
 let noteQueue = [];
+let consistencyStartMs = null;
+let consistencyNoteName = null;
+let consistencyFrequency = null;
+const STAFF_NOTE_Y = {
+  C: 75,
+  D: 70,
+  E: 65,
+  F: 60,
+  G: 55,
+  A: 50,
+  B: 45,
+};
 
 function updateStreakDisplay() {
   streakCountEl.textContent = String(streakCount);
 }
 
+function formatNoteForDisplay(noteName) {
+  return noteName.replace("b", "♭");
+}
+
+function renderTargetStaff(noteName) {
+  const staffLines = [25, 35, 45, 55, 65]
+    .map(
+      (y) =>
+        `<line x1="30" y1="${y}" x2="205" y2="${y}" stroke="#cbd5e1" stroke-width="1.5" />`
+    )
+    .join("");
+  const barLines = `
+    <line x1="30" y1="25" x2="30" y2="65" stroke="#cbd5e1" stroke-width="1.5" />
+    <line x1="205" y1="25" x2="205" y2="65" stroke="#cbd5e1" stroke-width="1.5" />
+  `;
+  const clef = `<text x="30" y="46" fill="#cbd5e1" font-size="70" dominant-baseline="middle">𝄞</text>`;
+
+  if (!noteName) {
+    targetStaffEl.innerHTML = `
+      ${staffLines}
+      ${barLines}
+      ${clef}
+    `;
+    return;
+  }
+
+  const natural = noteName[0];
+  const isSharp = noteName.includes("#");
+  const noteY = STAFF_NOTE_Y[natural];
+  const noteX = 148;
+  const noteRadiusX = 8;
+  const noteRadiusY = 6;
+  const needsLedgerLine = natural === "C";
+  const ledgerLine = needsLedgerLine
+    ? `<line x1="${noteX - 12}" y1="75" x2="${noteX + 12}" y2="75" stroke="#cbd5e1" stroke-width="1.5" />`
+    : "";
+  const isFlat = noteName.includes("b");
+  let accidental = "";
+  if (isSharp) {
+    accidental = `<text x="118" y="${noteY + 2}" fill="#f8fafc" font-size="22" font-weight="400" dominant-baseline="middle">#</text>`;
+  } else if (isFlat) {
+    accidental = `<text x="120" y="${noteY + 2}" fill="#f8fafc" font-size="28" font-weight="400" dominant-baseline="middle">♭</text>`;
+  }
+  const stem =
+    noteY <= 45
+      ? `<line x1="${noteX - 7}" y1="${noteY + 2}" x2="${noteX - 7}" y2="${noteY + 30}" stroke="#f8fafc" stroke-width="2" />`
+      : `<line x1="${noteX + 7}" y1="${noteY - 2}" x2="${noteX + 7}" y2="${noteY - 30}" stroke="#f8fafc" stroke-width="2" />`;
+
+  targetStaffEl.innerHTML = `
+    ${staffLines}
+    ${barLines}
+    ${clef}
+    ${ledgerLine}
+    ${accidental}
+    ${stem}
+    <ellipse cx="${noteX}" cy="${noteY}" rx="${noteRadiusX}" ry="${noteRadiusY}" fill="#f8fafc" transform="rotate(-20 ${noteX} ${noteY})" />
+  `;
+}
+
 function pickNextTargetNote() {
   if (noteQueue.length === 0) {
-    noteQueue = [...NOTE_NAMES];
+    noteQueue = [...TARGET_NOTE_NAMES];
   }
   const randomIndex = Math.floor(Math.random() * noteQueue.length);
   const [next] = noteQueue.splice(randomIndex, 1);
   targetNote = next;
-  targetNoteEl.textContent = next;
+  targetNoteEl.textContent = formatNoteForDisplay(next);
+  renderTargetStaff(next);
 }
 
 function clearTargetNote() {
   targetNote = null;
   targetNoteEl.textContent = "--";
+  renderTargetStaff(null);
+}
+
+function resetConsistencyTracking() {
+  consistencyStartMs = null;
+  consistencyNoteName = null;
+  consistencyFrequency = null;
+}
+
+function getConsistentNoteName(noteName, frequency, nowMs) {
+  if (consistencyStartMs === null) {
+    consistencyStartMs = nowMs;
+    consistencyNoteName = noteName;
+    consistencyFrequency = frequency;
+    return null;
+  }
+
+  const isConsistent =
+    consistencyNoteName === noteName &&
+    Math.abs(consistencyFrequency - frequency) <= CONSISTENCY_HZ_TOLERANCE;
+
+  if (!isConsistent) {
+    consistencyStartMs = nowMs;
+    consistencyNoteName = noteName;
+    consistencyFrequency = frequency;
+    return null;
+  }
+
+  if (nowMs - consistencyStartMs >= CONSISTENCY_MIN_DURATION_MS) {
+    return consistencyNoteName;
+  }
+
+  return null;
 }
 
 function frequencyToMidi(frequency) {
@@ -48,7 +194,11 @@ function frequencyToMidi(frequency) {
 }
 
 function midiToNoteName(midi) {
-  return NOTE_NAMES[((midi % 12) + 12) % 12];
+  return DETECTED_NOTE_NAMES[((midi % 12) + 12) % 12];
+}
+
+function noteNameToPitchClass(noteName) {
+  return NOTE_TO_PITCH_CLASS[noteName] ?? null;
 }
 
 function getPitchByAutocorrelation(buffer, sampleRate) {
@@ -140,8 +290,14 @@ function evaluateDetectedNote(detectedName) {
     return;
   }
 
+  resetConsistencyTracking();
   isLocked = true;
-  const isCorrect = detectedName === targetNote;
+  const detectedPitchClass = noteNameToPitchClass(detectedName);
+  const targetPitchClass = noteNameToPitchClass(targetNote);
+  const isCorrect =
+    detectedPitchClass !== null &&
+    targetPitchClass !== null &&
+    detectedPitchClass === targetPitchClass;
   setResultFlash(isCorrect);
 
   if (isCorrect) {
@@ -150,6 +306,7 @@ function evaluateDetectedNote(detectedName) {
     hintEl.textContent = "Correct! Release the key; next note appears after silence.";
     setTimeout(() => {
       clearTargetNote();
+      resetConsistencyTracking();
       waitingForSilenceAfterCorrect = true;
       silentFrameCount = 0;
     }, 1000);
@@ -159,6 +316,7 @@ function evaluateDetectedNote(detectedName) {
     hintEl.textContent = `Not quite. You played ${detectedName}. Try again.`;
     setTimeout(() => {
       isLocked = false;
+      resetConsistencyTracking();
     }, 1000);
   }
 }
@@ -178,11 +336,26 @@ function listenFrame() {
     silentFrameCount = 0;
     const midi = frequencyToMidi(rawFrequency);
     const noteName = midiToNoteName(midi);
-
-    detectedNoteEl.textContent = noteName;
-    detectedFrequencyEl.textContent = `${rawFrequency.toFixed(1)} Hz`;
-    evaluateDetectedNote(noteName);
+    if (!isLocked && targetNote) {
+      const consistentNoteName = getConsistentNoteName(
+        noteName,
+        rawFrequency,
+        performance.now()
+      );
+      if (consistentNoteName) {
+        detectedNoteEl.textContent = consistentNoteName;
+        detectedFrequencyEl.textContent = `${rawFrequency.toFixed(1)} Hz`;
+        evaluateDetectedNote(consistentNoteName);
+      } else {
+        detectedNoteEl.textContent = "Listening...";
+        detectedFrequencyEl.textContent = "-- Hz";
+      }
+    } else if (!isLocked) {
+      detectedNoteEl.textContent = "Listening...";
+      detectedFrequencyEl.textContent = "-- Hz";
+    }
   } else {
+    resetConsistencyTracking();
     if (waitingForSilenceAfterCorrect) {
       silentFrameCount += 1;
       if (silentFrameCount >= SILENCE_FRAMES_REQUIRED) {
@@ -190,6 +363,7 @@ function listenFrame() {
         pickNextTargetNote();
         hintEl.textContent = "Play the shown note on your instrument.";
         isLocked = false;
+        resetConsistencyTracking();
       }
     }
 
@@ -252,3 +426,6 @@ window.addEventListener("beforeunload", () => {
     audioContext.close();
   }
 });
+
+renderTargetStaff(null);
+
