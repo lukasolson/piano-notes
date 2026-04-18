@@ -4,7 +4,7 @@ A mobile-friendly web app that helps students learn piano note names by ear and 
 
 ## How it works
 
-1. A target note (for example `F` or `C#`) appears on screen.
+1. A target note appears as text and on a treble staff (for example `F#` or `B♭`).
 2. The app listens through the microphone and estimates pitch (Hz) using A440 tuning.
 3. The detected note is compared against the target note (octave does not matter).
 4. If correct, the screen flashes green and the streak increases.
@@ -13,7 +13,11 @@ A mobile-friendly web app that helps students learn piano note names by ear and 
 ## Features
 
 - Real-time microphone pitch detection in the browser
-- Note matching by pitch class (octave-agnostic)
+- Consistency-gated note detection to reduce noisy false triggers
+- Note matching by pitch class (octave-agnostic, enharmonic-aware)
+- Target notes include naturals, sharps, and flats (`♭`)
+- Staff notation rendering with accidentals and stems for each target note
+- Shuffled note-pool cycling so every note appears before repeating
 - Green/red feedback states for quick reinforcement
 - Streak counter for lightweight gamification
 - Mobile-first UI for phone/tablet practice
