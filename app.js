@@ -71,6 +71,8 @@ const CONSISTENCY_MIN_DURATION_MS = 200;
 const SILENCE_FRAMES_REQUIRED = 8;
 const MIN_VALID_FREQUENCY = 40;
 const MAX_VALID_FREQUENCY = 2000;
+const LOW_NOTE_RESONANCE_MAX_MIDI = 52; // E3 and below
+const OCTAVE_RESONANCE_GRACE_MS = 700;
 
 const appEl = document.getElementById("app");
 const targetNoteEl = document.getElementById("targetNote");
@@ -188,6 +190,14 @@ function midiToPitchClass(midi) {
 
 function noteNameToPitchClass(noteName) {
   return NOTE_TO_PITCH_CLASS[noteName] ?? null;
+}
+
+function isLikelyResonanceOctaveMiss(targetMidi, detectedMidi, elapsedMs) {
+  return (
+    targetMidi <= LOW_NOTE_RESONANCE_MAX_MIDI &&
+    detectedMidi === targetMidi + 12 &&
+    elapsedMs <= OCTAVE_RESONANCE_GRACE_MS
+  );
 }
 
 function diatonicIndex(letter, octave) {
@@ -396,16 +406,37 @@ function evaluateDetectedNote(detected) {
     return;
   }
 
-  resetConsistencyTracking();
-  isLocked = true;
-
   let isCorrect = false;
+  let shouldIgnore = false;
+
   if (displayMode === "name") {
     const detectedPitchClass = midiToPitchClass(detected.midi);
     isCorrect = detectedPitchClass === targetNote.pitchClass;
   } else {
-    isCorrect = detected.midi === targetNote.midi;
+    if (detected.midi === targetNote.midi) {
+      isCorrect = true;
+    } else {
+      const samePitchClass =
+        midiToPitchClass(detected.midi) === midiToPitchClass(targetNote.midi);
+      if (samePitchClass) {
+        const elapsedMs =
+          targetShownAtMs === null ? Infinity : performance.now() - targetShownAtMs;
+        shouldIgnore = isLikelyResonanceOctaveMiss(
+          targetNote.midi,
+          detected.midi,
+          elapsedMs
+        );
+      }
+    }
   }
+
+  if (shouldIgnore) {
+    hintEl.textContent = "Good attack. Hold the target note steadily...";
+    return;
+  }
+
+  resetConsistencyTracking();
+  isLocked = true;
 
   totalAttempts += 1;
   if (isCorrect) {
