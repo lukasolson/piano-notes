@@ -10,14 +10,28 @@
     <main class="app" id="app">
       <header class="header">
         <h1>Piano Note Trainer</h1>
-        <p>Play the shown note on a piano. Any octave counts.</p>
+        <p id="modeDescription">Play the shown note on a piano. Any octave counts.</p>
       </header>
 
       <section class="target-card">
         <p class="label">Target Note</p>
+        <div class="option-row">
+          <label for="displayMode" class="option-label">Display</label>
+          <select id="displayMode" class="select-input">
+            <option value="name">Note Name</option>
+            <option value="staff">Staff</option>
+          </select>
+        </div>
+        <div id="clefControls" class="option-row hidden">
+          <label for="clefMode" class="option-label">Clef</label>
+          <select id="clefMode" class="select-input">
+            <option value="treble">Treble</option>
+            <option value="bass">Bass</option>
+          </select>
+        </div>
         <div class="target-display">
           <p id="targetNote" class="target-note">--</p>
-          <div class="staff-wrapper" aria-hidden="true">
+          <div id="staffWrapper" class="staff-wrapper hidden" aria-hidden="true">
             <svg
               id="targetStaff"
               class="target-staff"
@@ -35,6 +49,16 @@
         <p id="detectedFrequency" class="frequency">-- Hz</p>
         <p class="label streak-label">Streak</p>
         <p id="streakCount" class="streak-count">0</p>
+        <div class="metrics-grid">
+          <div>
+            <p class="label metric-label">Accuracy</p>
+            <p id="accuracyValue" class="metric-value">0%</p>
+          </div>
+          <div>
+            <p class="label metric-label">Speed</p>
+            <p id="speedValue" class="metric-value">-- s/note</p>
+          </div>
+        </div>
       </section>
 
       <section class="controls">

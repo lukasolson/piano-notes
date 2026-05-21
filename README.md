@@ -4,17 +4,27 @@ A mobile-friendly web app that helps students learn piano note names by ear and 
 
 ## How it works
 
-1. A target note appears as text and on a treble staff (for example `F#` or `B♭`).
+1. Choose a display mode:
+   - `Note Name`: shows the note text (for example `F#` or `B♭`).
+   - `Staff`: shows notation on a staff and reveals a clef selector (`Treble` / `Bass`).
 2. The app listens through the microphone and estimates pitch (Hz) using A440 tuning.
-3. The detected note is compared against the target note (octave does not matter).
-4. If correct, the screen flashes green and the streak increases.
-5. If incorrect, the screen flashes red and the streak resets.
+3. A detection only counts after the note is stable (within a small Hz tolerance) for a short time window.
+4. Matching rules depend on mode:
+   - `Note Name`: octave does not matter (pitch class + enharmonic matching).
+   - `Staff`: exact written pitch is required (correct octave).
+5. In `Staff` mode, target notes are constrained to one line below through one line above the selected clef.
+6. If correct, the screen flashes green, streak increases, and the app waits for silence before showing the next note.
+7. If incorrect, the screen flashes red and streak resets.
 
 ## Features
 
 - Real-time microphone pitch detection in the browser
 - Consistency-gated note detection to reduce noisy false triggers
-- Note matching by pitch class (octave-agnostic, enharmonic-aware)
+- Dual training modes: `Note Name` and `Staff`
+- `Note Name` mode uses octave-agnostic, enharmonic-aware matching
+- `Staff` mode requires exact written pitch (includes octave)
+- Clef selection in staff mode (`Treble` / `Bass`)
+- Staff-mode target range constrained to one line below through one line above the staff
 - Target notes include naturals, sharps, and flats (`♭`)
 - Staff notation rendering with accidentals and stems for each target note
 - Shuffled note-pool cycling so every note appears before repeating

@@ -50,6 +50,30 @@ body {
   color: #94a3b8;
 }
 
+.option-row {
+  margin-top: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.option-label {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.select-input {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(15, 23, 42, 0.65);
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.85rem;
+}
+
 .target-note {
   margin: 0.2rem 0 0;
   font-size: 4rem;
@@ -77,6 +101,10 @@ body {
   height: auto;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .detected-note {
   margin: 0.25rem 0 0;
   font-size: 1.4rem;
@@ -98,6 +126,24 @@ body {
   line-height: 1;
   font-weight: 700;
   color: #facc15;
+}
+
+.metrics-grid {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.metric-label {
+  margin-bottom: 0.2rem;
+}
+
+.metric-value {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e2e8f0;
 }
 
 .btn {
