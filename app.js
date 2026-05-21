@@ -194,9 +194,16 @@ function diatonicIndex(letter, octave) {
   return octave * 7 + NOTE_ORDER.indexOf(letter);
 }
 
-function getClefBottomLineIndex() {
-  const bottom = parseScientificNote(CLEF_CONFIG[clefMode].bottomLine);
+function getClefBottomLineIndex(clefKey) {
+  const bottom = parseScientificNote(CLEF_CONFIG[clefKey].bottomLine);
   return diatonicIndex(bottom.letter, bottom.octave);
+}
+
+function getActiveStaffClefs() {
+  if (clefMode === "both") {
+    return ["treble", "bass"];
+  }
+  return [clefMode];
 }
 
 function buildTargetPool() {
@@ -209,19 +216,22 @@ function buildTargetPool() {
     }));
   }
 
-  const { minMidi, maxMidi } = CLEF_CONFIG[clefMode];
   const pool = [];
-  for (let midi = minMidi; midi <= maxMidi; midi += 1) {
-    const pitchClass = midiToPitchClass(midi);
-    const spellings = STAFF_PITCH_CLASS_SPELLINGS[pitchClass] ?? [
-      DETECTED_NOTE_NAMES[pitchClass],
-    ];
-    for (const spelling of spellings) {
-      pool.push({
-        mode: "staff",
-        midi,
-        noteName: scientificNoteFromSpellingAndMidi(spelling, midi),
-      });
+  for (const activeClef of getActiveStaffClefs()) {
+    const { minMidi, maxMidi } = CLEF_CONFIG[activeClef];
+    for (let midi = minMidi; midi <= maxMidi; midi += 1) {
+      const pitchClass = midiToPitchClass(midi);
+      const spellings = STAFF_PITCH_CLASS_SPELLINGS[pitchClass] ?? [
+        DETECTED_NOTE_NAMES[pitchClass],
+      ];
+      for (const spelling of spellings) {
+        pool.push({
+          mode: "staff",
+          clef: activeClef,
+          midi,
+          noteName: scientificNoteFromSpellingAndMidi(spelling, midi),
+        });
+      }
     }
   }
   return pool;
@@ -241,7 +251,7 @@ function pickNextTargetNote() {
     renderTargetStaff(null);
   } else {
     targetNoteEl.textContent = "--";
-    renderTargetStaff(next.noteName);
+    renderTargetStaff(next.noteName, next.clef);
   }
 }
 
@@ -249,10 +259,11 @@ function clearTargetNote() {
   targetNote = null;
   targetShownAtMs = null;
   targetNoteEl.textContent = "--";
-  renderTargetStaff(null);
+  renderTargetStaff(null, null);
 }
 
-function renderTargetStaff(scientificNote) {
+function renderTargetStaff(scientificNote, clefKey) {
+  const activeClef = clefKey ?? (clefMode === "both" ? "treble" : clefMode);
   const staffLines = [25, 35, 45, 55, 65]
     .map(
       (y) =>
@@ -263,7 +274,7 @@ function renderTargetStaff(scientificNote) {
     <line x1="30" y1="25" x2="30" y2="65" stroke="#cbd5e1" stroke-width="1.5" />
     <line x1="205" y1="25" x2="205" y2="65" stroke="#cbd5e1" stroke-width="1.5" />
   `;
-  const clefSymbol = CLEF_CONFIG[clefMode].symbol;
+  const clefSymbol = CLEF_CONFIG[activeClef].symbol;
   const clef = `<text x="30" y="46" fill="#cbd5e1" font-size="70" dominant-baseline="middle">${clefSymbol}</text>`;
 
   if (!scientificNote || displayMode !== "staff") {
@@ -284,7 +295,7 @@ function renderTargetStaff(scientificNote) {
   const noteX = 148;
   const noteRadiusX = 8;
   const noteRadiusY = 6;
-  const bottomIndex = getClefBottomLineIndex();
+  const bottomIndex = getClefBottomLineIndex(activeClef);
   const noteIndex = diatonicIndex(parsed.letter, parsed.octave);
   const staffStepsFromBottom = noteIndex - bottomIndex;
   const noteY = 65 - staffStepsFromBottom * 5;
@@ -611,7 +622,7 @@ clefModeEl.addEventListener("change", () => {
   if (displayMode === "staff") {
     refreshTargetsForModeChange();
   } else {
-    renderTargetStaff(null);
+    renderTargetStaff(null, null);
   }
 });
 
@@ -640,5 +651,5 @@ displayModeEl.value = displayMode;
 clefModeEl.value = clefMode;
 updatePracticeModeUI();
 updatePerformanceDisplay();
-renderTargetStaff(null);
+renderTargetStaff(null, null);
 
